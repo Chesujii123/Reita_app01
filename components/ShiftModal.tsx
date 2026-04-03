@@ -1,40 +1,31 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { OvertimeRatio, ShiftEntry, WorkRatio } from "@/lib/types";
+import type { DayEntry, SiteEntry, WorkRatio } from "@/lib/types";
 
 interface Props {
   date: string;
-  entry: ShiftEntry | null;
-  onSave: (entry: ShiftEntry) => void;
+  entry: DayEntry | null;
+  onSave: (entry: DayEntry) => void;
   onDelete: () => void;
   onClose: () => void;
 }
 
 const WORK_RATIOS: WorkRatio[] = [0.5, 1];
-const WORK_RATIO_LABELS: Record<number, string> = {
-  0.5: "0.5日",
-  1: "1日",
-};
-
-const OVERTIME_OPTIONS: { value: OvertimeRatio; label: string }[] = [
-  { value: 0, label: "なし" },
-  { value: 0.5, label: "0.5日" },
-  { value: 1, label: "1日" },
-];
-
-const GAS_STEP = 1000;
 
 function formatDate(dateStr: string): string {
   const d = new Date(dateStr + "T00:00:00");
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日`;
 }
 
+function newSite(): SiteEntry {
+  return { siteName: "", workRatio: 1, overtimeHours: 0 };
+}
+
 export default function ShiftModal({ date, entry, onSave, onDelete, onClose }: Props) {
-  const [siteName, setSiteName] = useState(entry?.siteName ?? "");
-  const [workRatio, setWorkRatio] = useState<WorkRatio>(entry?.workRatio ?? 1);
-  const [overtime, setOvertime] = useState<OvertimeRatio>(entry?.overtime ?? 0);
-  const [gasolineCost, setGasolineCost] = useState(entry?.gasolineCost ?? 0);
+  const [sites, setSites] = useState<SiteEntry[]>(
+    entry && entry.sites.length > 0 ? entry.sites : [newSite()]
+  );
   const overlayRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -45,23 +36,29 @@ export default function ShiftModal({ date, entry, onSave, onDelete, onClose }: P
     return () => window.removeEventListener("keydown", handleKey);
   }, [onClose]);
 
-  const handleSave = () => {
-    if (!siteName.trim()) return;
-    onSave({
-      date,
-      siteName: siteName.trim(),
-      workRatio,
-      overtime,
-      gasolineCost,
-    });
+  const updateSite = <K extends keyof SiteEntry>(
+    idx: number,
+    key: K,
+    value: SiteEntry[K]
+  ) => {
+    setSites((prev) => prev.map((s, i) => (i === idx ? { ...s, [key]: value } : s)));
   };
+
+  const addSite = () => setSites((prev) => [...prev, newSite()]);
+  const removeSite = (idx: number) =>
+    setSites((prev) => prev.filter((_, i) => i !== idx));
+
+  const handleSave = () => {
+    const validSites = sites.filter((s) => s.siteName.trim() !== "");
+    if (validSites.length === 0) return;
+    onSave({ date, sites: validSites.map((s) => ({ ...s, siteName: s.siteName.trim() })) });
+  };
+
+  const canSave = sites.some((s) => s.siteName.trim() !== "");
 
   const handleOverlayClick = (e: React.MouseEvent) => {
     if (e.target === overlayRef.current) onClose();
   };
-
-  const decreaseGas = () => setGasolineCost((v) => Math.max(0, v - GAS_STEP));
-  const increaseGas = () => setGasolineCost((v) => v + GAS_STEP);
 
   return (
     <div
@@ -69,9 +66,9 @@ export default function ShiftModal({ date, entry, onSave, onDelete, onClose }: P
       onClick={handleOverlayClick}
       className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4"
     >
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm p-6 flex flex-col gap-5">
-        {/* タイトル */}
-        <div className="flex items-center justify-between">
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-sm flex flex-col max-h-[90vh]">
+        {/* ヘッダー */}
+        <div className="flex items-center justify-between px-6 pt-6 pb-4 border-b border-gray-100">
           <h2 className="text-lg font-bold text-gray-800">{formatDate(date)}</h2>
           <button
             onClick={onClose}
@@ -81,97 +78,100 @@ export default function ShiftModal({ date, entry, onSave, onDelete, onClose }: P
           </button>
         </div>
 
-        {/* 現場名 */}
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-600">現場名</label>
-          <input
-            type="text"
-            value={siteName}
-            onChange={(e) => setSiteName(e.target.value)}
-            placeholder="現場名を入力"
-            className="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 focus:outline-none focus:ring-2 focus:ring-blue-400"
-          />
-        </div>
-
-        {/* 出勤日数 */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-600">出勤日数</label>
-          <div className="grid grid-cols-2 gap-2">
-            {WORK_RATIOS.map((r) => (
-              <button
-                key={r}
-                onClick={() => setWorkRatio(r)}
-                className={`py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
-                  workRatio === r
-                    ? "bg-blue-500 text-white border-blue-500"
-                    : "bg-white text-gray-600 border-gray-300 hover:bg-blue-50"
-                }`}
-              >
-                {WORK_RATIO_LABELS[r]}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* 残業 */}
-        <div className="flex flex-col gap-2">
-          <label className="text-sm font-medium text-gray-600">残業</label>
-          <div className="grid grid-cols-3 gap-2">
-            {OVERTIME_OPTIONS.map(({ value, label }) => (
-              <button
-                key={value}
-                onClick={() => setOvertime(value)}
-                className={`py-2.5 rounded-lg text-sm font-semibold border transition-colors ${
-                  overtime === value
-                    ? "bg-orange-400 text-white border-orange-400"
-                    : "bg-white text-gray-600 border-gray-300 hover:bg-orange-50"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* ガソリン代 */}
-        <div className="flex flex-col gap-1">
-          <label className="text-sm font-medium text-gray-600">ガソリン代</label>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={decreaseGas}
-              disabled={gasolineCost === 0}
-              className="w-10 h-10 rounded-lg border border-gray-300 text-gray-600 text-xl font-bold hover:bg-gray-100 disabled:opacity-30 transition-colors flex items-center justify-center"
+        {/* 現場リスト（スクロール可） */}
+        <div className="flex-1 overflow-y-auto px-6 py-4 flex flex-col gap-4">
+          {sites.map((site, idx) => (
+            <div
+              key={idx}
+              className="border border-gray-200 rounded-xl p-4 flex flex-col gap-3 relative"
             >
-              −
-            </button>
-            <div className="flex-1 text-center">
-              <span className="text-xl font-bold text-gray-800">
-                ¥{gasolineCost.toLocaleString()}
-              </span>
+              {/* 現場番号・削除ボタン */}
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-gray-400 uppercase tracking-wide">
+                  現場 {idx + 1}
+                </span>
+                {sites.length > 1 && (
+                  <button
+                    onClick={() => removeSite(idx)}
+                    className="text-red-400 hover:text-red-600 text-sm font-medium"
+                  >
+                    削除
+                  </button>
+                )}
+              </div>
+
+              {/* 現場名 */}
+              <input
+                type="text"
+                value={site.siteName}
+                onChange={(e) => updateSite(idx, "siteName", e.target.value)}
+                placeholder="現場名を入力"
+                className="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400 w-full"
+              />
+
+              {/* 出勤日数 */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-500">出勤日数</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {WORK_RATIOS.map((r) => (
+                    <button
+                      key={r}
+                      onClick={() => updateSite(idx, "workRatio", r)}
+                      className={`py-2 rounded-lg text-sm font-semibold border transition-colors ${
+                        site.workRatio === r
+                          ? "bg-blue-500 text-white border-blue-500"
+                          : "bg-white text-gray-600 border-gray-300 hover:bg-blue-50"
+                      }`}
+                    >
+                      {r === 0.5 ? "0.5日" : "1日"}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 残業（時間入力） */}
+              <div className="flex flex-col gap-1.5">
+                <label className="text-xs font-medium text-gray-500">残業時間</label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    step={0.5}
+                    value={site.overtimeHours === 0 ? "" : site.overtimeHours}
+                    onChange={(e) =>
+                      updateSite(idx, "overtimeHours", Number(e.target.value) || 0)
+                    }
+                    placeholder="0"
+                    className="border border-gray-300 rounded-lg px-3 py-2 text-gray-800 text-sm focus:outline-none focus:ring-2 focus:ring-orange-300 w-full"
+                  />
+                  <span className="text-sm text-gray-400 shrink-0">時間</span>
+                </div>
+              </div>
             </div>
-            <button
-              onClick={increaseGas}
-              className="w-10 h-10 rounded-lg border border-gray-300 text-gray-600 text-xl font-bold hover:bg-gray-100 transition-colors flex items-center justify-center"
-            >
-              ＋
-            </button>
-          </div>
-          <p className="text-xs text-gray-400 text-center">1,000円単位で増減</p>
+          ))}
+
+          {/* 現場追加ボタン */}
+          <button
+            onClick={addSite}
+            className="w-full py-2.5 rounded-xl border-2 border-dashed border-gray-300 text-gray-400 hover:border-blue-400 hover:text-blue-400 text-sm font-medium transition-colors"
+          >
+            ＋ 現場を追加
+          </button>
         </div>
 
-        {/* ボタン */}
-        <div className="flex gap-3 pt-1">
+        {/* フッターボタン */}
+        <div className="flex gap-3 px-6 py-4 border-t border-gray-100">
           {entry && (
             <button
               onClick={onDelete}
               className="flex-1 py-2 rounded-lg border border-red-300 text-red-500 hover:bg-red-50 text-sm font-medium transition-colors"
             >
-              削除
+              この日を削除
             </button>
           )}
           <button
             onClick={handleSave}
-            disabled={!siteName.trim()}
+            disabled={!canSave}
             className="flex-1 py-2.5 rounded-lg bg-blue-500 text-white font-semibold hover:bg-blue-600 disabled:opacity-40 transition-colors"
           >
             保存

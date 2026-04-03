@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "reita-app",
+      "runtimeExecutable": "/opt/homebrew/bin/node",
+      "runtimeArgs": ["/Users/chesujii/Claude_Code/reita_app/node_modules/.bin/next", "dev", "--port", "3000"],
+      "port": 3000
+    }
+  ]
+}

@@ -12,8 +12,6 @@ import type { DayData, DayEntry } from "@/lib/types";
 import ShiftModal from "./ShiftModal";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
-const GAS_STEP = 1000;
-
 function toDateStr(year: number, month: number, day: number): string {
   return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
 }
@@ -226,28 +224,21 @@ export default function Calendar() {
               <span className="text-2xl font-bold text-orange-400">{totalOvertime}</span>
               <span className="text-xs text-gray-400">時間</span>
             </div>
-            {/* ガソリン代（入力エリア） */}
-            <div className="flex flex-col items-center py-3 px-2 gap-1">
+            {/* ガソリン代（自由入力） */}
+            <div className="flex flex-col items-center py-3 px-3 gap-1">
               <span className="text-xs text-gray-400">ガソリン代</span>
-              <span className="text-lg font-bold text-gray-700">
-                ¥{gasolineCost.toLocaleString()}
-              </span>
-              <div className="flex items-center gap-1 mt-0.5">
-                <button
-                  onClick={() => handleGasChange(gasolineCost - GAS_STEP)}
-                  disabled={gasolineCost === 0}
-                  className="w-7 h-7 rounded-md border border-gray-300 text-gray-500 text-base font-bold hover:bg-gray-100 disabled:opacity-30 transition-colors flex items-center justify-center leading-none"
-                >
-                  −
-                </button>
-                <button
-                  onClick={() => handleGasChange(gasolineCost + GAS_STEP)}
-                  className="w-7 h-7 rounded-md border border-gray-300 text-gray-500 text-base font-bold hover:bg-gray-100 transition-colors flex items-center justify-center leading-none"
-                >
-                  ＋
-                </button>
+              <div className="flex items-center gap-1 w-full">
+                <span className="text-gray-400 text-sm">¥</span>
+                <input
+                  type="number"
+                  min={0}
+                  value={gasolineCost === 0 ? "" : gasolineCost}
+                  onChange={(e) => handleGasChange(Number(e.target.value) || 0)}
+                  placeholder="0"
+                  className="w-full text-center text-lg font-bold text-gray-700 border border-gray-300 rounded-lg px-2 py-1 focus:outline-none focus:ring-2 focus:ring-blue-300"
+                />
               </div>
-              <span className="text-xs text-gray-300">1,000円単位</span>
+              <span className="text-xs text-gray-300">円</span>
             </div>
           </div>
 
